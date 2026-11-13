@@ -1,0 +1,18 @@
+{
+  "left": {
+    "dataset": "orders",
+    "key_fields": ["region", "code"],
+    "secondary_fields": [],
+    "dedup_mode": "none",
+    "null_field_override": {}
+  },
+  "right": {
+    "dataset": "payments",
+    "key_fields": ["region", "code"],
+    "secondary_fields": [],
+    "dedup_mode": "none",
+    "null_field_override": {}
+  },
+  "join_type": "inner",
+  "max_output_rows": 200000
+}

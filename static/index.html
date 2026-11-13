@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JoinLab · 双表关联预览与执行</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="mark">⇄</span>
+    <div>
+      <h1>JoinLab</h1>
+      <p>先看键、再看行，确认之后才执行</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <span id="serverState" class="pill pill-idle">就绪</span>
+    <button id="reloadBtn" class="btn btn-ghost" type="button">重置</button>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- 配置区 -->
+  <section class="panel panel-config" aria-labelledby="configTitle">
+    <div class="panel-head">
+      <h2 id="configTitle">1 · 选择字段与关联方式</h2>
+    </div>
+
+    <div class="sides">
+      <div class="side" id="sideLeft">
+        <label class="field-label">左表</label>
+        <select id="leftDataset" class="input"></select>
+        <div class="chips" id="leftColumns"></div>
+        <div class="field-label sub">关联字段（按字段组合判断，不拼接字符串）</div>
+        <div class="key-picker" id="leftKeys"></div>
+        <div class="field-label sub">次级关联字段（可选，加入复合键）</div>
+        <div class="key-picker" id="leftSecondary"></div>
+        <div class="field-label sub">空值处理（逐字段）</div>
+        <div class="null-picker" id="leftNull"></div>
+        <label class="switch-row">
+          <input type="checkbox" id="leftDedup">
+          <span>按关联键去重，保留每组首行</span>
+        </label>
+      </div>
+
+      <div class="side" id="sideRight">
+        <label class="field-label">右表</label>
+        <select id="rightDataset" class="input"></select>
+        <div class="chips" id="rightColumns"></div>
+        <div class="field-label sub">关联字段（按字段组合判断，不拼接字符串）</div>
+        <div class="key-picker" id="rightKeys"></div>
+        <div class="field-label sub">次级关联字段（可选，加入复合键）</div>
+        <div class="key-picker" id="rightSecondary"></div>
+        <div class="field-label sub">空值处理（逐字段）</div>
+        <div class="null-picker" id="rightNull"></div>
+        <label class="switch-row">
+          <input type="checkbox" id="rightDedup">
+          <span>按关联键去重，保留每组首行</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="join-row">
+      <div>
+        <label class="field-label" for="joinType">关联方式</label>
+        <select id="joinType" class="input">
+          <option value="inner">内连接 · 仅保留两侧匹配</option>
+          <option value="left">左连接 · 保留左表全部</option>
+          <option value="right">右连接 · 保留右表全部</option>
+          <option value="full">全连接 · 保留两侧全部</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label" for="maxRows">结果行数上限</label>
+        <input id="maxRows" class="input" type="number" min="1" step="1000" value="200000">
+      </div>
+      <div class="join-actions">
+        <button id="previewBtn" class="btn btn-primary" type="button">预览关联</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 结果区 -->
+  <section class="panel" aria-labelledby="statsTitle">
+    <div class="panel-head">
+      <h2 id="statsTitle">2 · 关联预览</h2>
+      <span id="previewState" class="pill pill-idle">尚未预览</span>
+    </div>
+
+    <div id="emptyState" class="empty">
+      选择两侧关联字段后点击「预览关联」。预览会告诉你键的唯一性、未匹配记录数，
+      以及按实际键频次预计产生的行数；确认无误再执行。
+    </div>
+
+    <div id="statsBlock" class="hidden">
+      <div class="cards">
+        <div class="card card-accent">
+          <span class="card-label">预计结果行数</span>
+          <strong id="statResult" class="card-value">—</strong>
+          <span id="statResultHint" class="card-hint"></span>
+        </div>
+        <div class="card">
+          <span class="card-label">键基数判定</span>
+          <strong id="statCardinality" class="card-value">—</strong>
+          <span id="statCardinalityHint" class="card-hint"></span>
+        </div>
+        <div class="card">
+          <span class="card-label">左表未匹配</span>
+          <strong id="statLeftUnmatched" class="card-value">—</strong>
+          <span id="statLeftUnmatchedHint" class="card-hint"></span>
+        </div>
+        <div class="card">
+          <span class="card-label">右表未匹配</span>
+          <strong id="statRightUnmatched" class="card-value">—</strong>
+          <span id="statRightUnmatchedHint" class="card-hint"></span>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="subpanel">
+          <h3>键的唯一性</h3>
+          <div id="uniqueTable" class="table-wrap small"></div>
+        </div>
+        <div class="subpanel">
+          <h3>字段配对（按位置）</h3>
+          <div id="fieldPairs" class="pair-list"></div>
+          <p class="muted" style="margin:8px 0 0;font-size:11.5px">
+            两侧第 1 个字段互相比对、第 2 个互相比对；名称不同时会标注提醒。
+          </p>
+        </div>
+      </div>
+
+      <div class="subpanel">
+        <div class="subpanel-head">
+          <h3>关联类型分解（匹配键）</h3>
+        </div>
+        <div id="cardinalityBreakdown" class="breakdown"></div>
+      </div>
+
+      <div class="subpanel">
+        <div class="subpanel-head">
+          <h3>膨胀最多的键</h3>
+          <span class="muted">按 左频次 × 右频次 排序，点击展开两侧原始记录</span>
+        </div>
+        <div id="topKeys" class="table-wrap"></div>
+        <div id="keyDetail" class="key-detail hidden"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="subpanel">
+          <h3>左表未匹配样本</h3>
+          <div id="unmatchedLeft" class="table-wrap small"></div>
+        </div>
+        <div class="subpanel">
+          <h3>右表未匹配样本</h3>
+          <div id="unmatchedRight" class="table-wrap small"></div>
+        </div>
+      </div>
+
+      <div class="subpanel" id="compareBlock">
+        <div class="subpanel-head">
+          <h3>规则对比</h3>
+          <span class="muted">调整去重或次级字段后对比行数与未匹配变化</span>
+        </div>
+        <div id="compareTable" class="table-wrap small"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 执行区 -->
+  <section class="panel" aria-labelledby="execTitle">
+    <div class="panel-head">
+      <h2 id="execTitle">3 · 确认并执行</h2>
+      <span id="execState" class="pill pill-idle">未执行</span>
+    </div>
+    <div class="exec-row">
+      <label class="switch-row">
+        <input type="checkbox" id="confirmCheck" disabled>
+        <span>我已核对上述键唯一性、未匹配与预计行数</span>
+      </label>
+      <input id="outputName" class="input" type="text" placeholder="输出文件名（可选）">
+      <button id="executeBtn" class="btn btn-primary" type="button" disabled>执行关联</button>
+    </div>
+    <div id="execNotice" class="notice hidden"></div>
+    <div id="execPreview" class="table-wrap small hidden"></div>
+  </section>
+
+  <!-- 审计区 -->
+  <section class="panel" aria-labelledby="auditTitle">
+    <div class="panel-head">
+      <h2 id="auditTitle">4 · 执行记录</h2>
+      <button id="refreshRuns" class="btn btn-ghost" type="button">刷新</button>
+    </div>
+    <div id="runsTable" class="table-wrap small"></div>
+    <div id="runDetail" class="key-detail hidden"></div>
+  </section>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+pay_id,region,code,amount,memo
+101,north,A,100,p1
+102,north|A,B,100,p2
+103,,A,200,p3
+104,south,C,300,p4
+105,south,C,300,p5
+106,south,C,300,p6
+107,north,A|B,100,p7
+108,west,E,500,p8
+109,west,E,500,p9
+110,central,F,300,p10

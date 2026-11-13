@@ -1,0 +1,10 @@
+order_id,region,code,amount,customer
+1,north,A|B,100,alice
+2,north|A,B,100,bob
+3,,A,200,carol
+4,south,C,300,dave
+5,south,C,300,erin
+6,east,D,400,frank
+7,west,E,500,grace
+8,west,E,500,heidi
+9,central,F,300,ivan
